@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens: Light ───────────────────────────────────────────────── */
+:root {
+  --z-teal:        #0F6E56;
+  --z-teal-light:  #1D9E75;
+  --z-teal-bg:     #E1F5EE;
+  --z-teal-pale:   #9FE1CB;
+  --z-critical:    #E24B4A;
+  --z-critical-bg: #FCEBEB;
+  --z-warn:        #BA7517;
+  --z-warn-bg:     #FAEEDA;
+  --z-ok:          #3B6D11;
+  --z-ok-bg:       #EAF3DE;
+  --z-blue:        #185FA5;
+  --z-blue-bg:     #E6F1FB;
+  --z-border:      rgba(31, 180, 140, 0.15);
+
+  /* Surfaces */
+  --surface:  #ffffff;
+  --surface2: #f4f7f6;
+
+  /* Text */
+  --text1: #0d1f1a;
+  --text2: #4a6660;
+  --text3: #8fa8a1;
+}
+
+/* ─── Design Tokens: Dark ────────────────────────────────────────────────── */
+.dark {
+  --z-border: rgba(31, 180, 140, 0.12);
+  --surface:  #141e1b;
+  --surface2: #0d1512;
+  --text1:    #e4f0ec;
+  --text2:    #7aada3;
+  --text3:    #3d6b63;
+}
+
+/* ─── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root       { height: 100%; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background:  var(--surface2);
+  color:       var(--text1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: var(--z-border); border-radius: 2px; }
