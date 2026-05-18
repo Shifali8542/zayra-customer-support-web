@@ -1,3 +1,4 @@
+// src/components/layout/Topbar.tsx
 import React from 'react';
 import ZayraLogo from '../ui/ZayraLogo';
 import { useTheme } from '../../theme/ThemeContext';
@@ -24,12 +25,9 @@ const LogoutIcon = () => (
   </svg>
 );
 
-const IconButton = ({
-  onClick, title, children,
-}: { onClick: () => void; title: string; children: React.ReactNode }) => (
+const IconButton = ({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) => (
   <button
-    onClick={onClick}
-    title={title}
+    onClick={onClick} title={title}
     className="
       w-[30px] h-[30px] rounded-[8px] border border-[var(--z-border)]
       bg-[var(--surface2)] flex items-center justify-center cursor-pointer
@@ -41,9 +39,21 @@ const IconButton = ({
   </button>
 );
 
+function formatDate(): string {
+  return new Date().toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
+
 const Topbar = () => {
   const { toggle, isDark } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user }   = useAuth();
+
+  const displayName = user?.name ?? 'Agent';
+  const status      = user?.status ?? 'online';
+
+  const statusLabel: Record<string, string> = { online: 'Online', busy: 'Busy', away: 'Away', offline: 'Offline' };
+  const statusDot:   Record<string, string> = { online: 'bg-[#27B06E]', busy: 'bg-[#BA7517]', away: 'bg-[#888888]', offline: 'bg-[#888888]' };
 
   return (
     <header className="
@@ -52,26 +62,19 @@ const Topbar = () => {
       transition-colors duration-200
     ">
       <ZayraLogo />
-
       <div className="flex items-center gap-[10px]">
-        <span className="text-[12px] text-[var(--text2)] hidden sm:block">
-          Wed, 6 May 2026
-        </span>
-
-        {/* Agent status pill */}
+        <span className="text-[12px] text-[var(--text2)] hidden sm:block">{formatDate()}</span>
         <div className="
           flex items-center gap-[6px] text-[12px] text-[var(--text2)]
           bg-[var(--surface2)] border border-[var(--z-border)]
           rounded-full px-[10px] py-1
         ">
-          <span className="w-[6px] h-[6px] rounded-full bg-[#27B06E] flex-shrink-0" />
-          Priya S. — Online
+          <span className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${statusDot[status] ?? statusDot.online}`} />
+          {displayName} — {statusLabel[status] ?? 'Online'}
         </div>
-
         <IconButton onClick={toggle} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
           {isDark ? <SunIcon /> : <MoonIcon />}
         </IconButton>
-
         <IconButton onClick={logout} title="Log out">
           <LogoutIcon />
         </IconButton>

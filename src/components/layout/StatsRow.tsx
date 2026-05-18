@@ -1,6 +1,7 @@
-import React from 'react';
-import type { StatCard } from '../../schema';
-import { STATS } from '../../data/mockData';
+// src/components/layout/StatsRow.tsx
+import React, { useEffect, useState } from 'react';
+import type { StatCard, DashboardStats } from '../../schema';
+import { dashboardApi } from '../../services/api';
 
 const TREND_CLASS: Record<StatCard['trend'], string> = {
   up:      'text-[#3B6D11]',
@@ -19,10 +20,65 @@ const StatItem = ({ stat }: { stat: StatCard }) => (
   </div>
 );
 
-const StatsRow = () => (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-[10px] px-5 pt-3">
-    {STATS.map((s) => <StatItem key={s.label} stat={s} />)}
-  </div>
-);
+function mapToStatCards(data: DashboardStats): StatCard[] {
+  return [
+    {
+      label: 'Open tickets',
+      value: String(data.open_tickets),
+      sub:   data.open_tickets_sub,
+      trend: data.open_tickets_trend,
+    },
+    {
+      label: 'Avg. response',
+      value: data.avg_response_minutes != null ? `${Math.round(data.avg_response_minutes)}m` : '—',
+      sub:   data.avg_response_sub,
+      trend: data.avg_response_trend,
+    },
+    {
+      label: 'CSAT today',
+      value: data.csat_today != null ? String(data.csat_today) : '—',
+      sub:   data.csat_sub,
+      trend: data.csat_trend,
+    },
+    {
+      label: 'Agents online',
+      value: String(data.agents_online),
+      sub:   `of ${data.agents_scheduled} scheduled`,
+      trend: data.agents_online_trend,
+    },
+  ];
+}
+
+const StatsRow = () => {
+  const [stats,     setStats]     = useState<StatCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    dashboardApi.getStats()
+      .then(data => setStats(mapToStatCards(data)))
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-[10px] px-5 pt-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="bg-[var(--surface)] border border-[var(--z-border)] rounded-[8px] p-[12px_14px] animate-pulse">
+            <div className="h-[11px] w-20 bg-[var(--surface2)] rounded mb-2" />
+            <div className="h-[22px] w-12 bg-[var(--surface2)] rounded mb-2" />
+            <div className="h-[11px] w-24 bg-[var(--surface2)] rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-[10px] px-5 pt-3">
+      {stats.map(s => <StatItem key={s.label} stat={s} />)}
+    </div>
+  );
+};
 
 export default StatsRow;

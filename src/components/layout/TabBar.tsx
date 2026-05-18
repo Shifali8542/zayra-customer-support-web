@@ -1,10 +1,19 @@
+// src/components/layout/TabBar.tsx
 import React, { useState } from 'react';
-import type { TabId } from '../../schema';
-import { NAV_TABS } from '../../data/mockData';
+import type { TabId, NavTab } from '../../schema';
+
+const NAV_TABS: NavTab[] = [
+  { id: 'queue',          label: 'Live Queue'     },
+  { id: 'my-cases',       label: 'My Cases'       },
+  { id: 'escalations',    label: 'Escalations'    },
+  { id: 'device-alerts',  label: 'Device Alerts'  },
+  { id: 'knowledge-base', label: 'Knowledge Base' },
+  { id: 'analytics',      label: 'Analytics'      },
+];
 
 interface TabBarProps {
-  activeTab:    TabId;
-  onTabChange:  (tab: TabId) => void;
+  activeTab:   TabId;
+  onTabChange: (tab: TabId) => void;
 }
 
 const ChevronIcon = ({ open }: { open: boolean }) => (
@@ -19,18 +28,17 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
 
 const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const activeLabel = NAV_TABS.find((t) => t.id === activeTab)?.label;
+  const activeLabel = NAV_TABS.find((t: NavTab) => t.id === activeTab)?.label;
 
   return (
     <>
-      {/* ── Desktop ─────────────────────────────────── */}
       <nav className="
         hidden md:flex border-b border-[var(--z-border)]
         bg-[var(--surface)] px-5 overflow-x-auto
         transition-colors duration-200
         [&::-webkit-scrollbar]:h-0
       ">
-        {NAV_TABS.map((tab) => (
+        {NAV_TABS.map((tab: NavTab) => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
@@ -48,7 +56,6 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
         ))}
       </nav>
 
-      {/* ── Mobile toggle ────────────────────────────── */}
       <div
         className="
           md:hidden flex items-center justify-between px-5 py-[10px]
@@ -56,16 +63,15 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
           text-[13px] text-[var(--text1)] font-medium cursor-pointer
           transition-colors duration-200
         "
-        onClick={() => setMobileOpen((o) => !o)}
+        onClick={() => setMobileOpen(o => !o)}
       >
         <span>{activeLabel}</span>
         <ChevronIcon open={mobileOpen} />
       </div>
 
-      {/* ── Mobile dropdown ──────────────────────────── */}
       {mobileOpen && (
         <div className="md:hidden bg-[var(--surface)] border-b border-[var(--z-border)]">
-          {NAV_TABS.map((tab) => (
+          {NAV_TABS.map((tab: NavTab) => (
             <button
               key={tab.id}
               onClick={() => { onTabChange(tab.id); setMobileOpen(false); }}

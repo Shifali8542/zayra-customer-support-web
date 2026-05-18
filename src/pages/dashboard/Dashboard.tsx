@@ -1,20 +1,21 @@
+// src/pages/dashboard/Dashboard.tsx
 import React from 'react';
-import Topbar      from '../../components/layout/Topbar';
-import TabBar      from '../../components/layout/TabBar';
-import StatsRow    from '../../components/layout/StatsRow';
-import TicketQueue from '../../components/tickets/TicketQueue';
-import TicketDetail from '../../components/tickets/TicketDetail';
-import AgentsOnline from '../../components/agents/AgentsOnline';
+import Topbar        from '../../components/layout/Topbar';
+import TabBar        from '../../components/layout/TabBar';
+import StatsRow      from '../../components/layout/StatsRow';
+import TicketQueue   from '../../components/tickets/TicketQueue';
+import TicketDetail  from '../../components/tickets/TicketDetail';
+import AgentsOnline  from '../../components/agents/AgentsOnline';
 import CategoryChart from '../../components/charts/CategoryChart';
-import CsatCard     from '../../components/charts/CsatCard';
-import Analytics    from '../analytics/Analytics';
+import CsatCard      from '../../components/charts/CsatCard';
+import Analytics     from '../analytics/Analytics';
 import { useDashboard } from '../../hooks/useDashboard';
 import type { TabId, FilterTag } from '../../schema';
 
 const Dashboard = () => {
   const {
     filteredTickets, selectedTicket, selectedId,
-    activeFilter, activeTab,
+    activeFilter, activeTab, isLoading, error,
     selectTicket, setFilter, setActiveTab, sendReply,
   } = useDashboard();
 
@@ -31,22 +32,32 @@ const Dashboard = () => {
         <>
           <StatsRow />
 
-          {/* Main content area */}
+          {error && (
+            <div className="mx-5 mt-3 p-[10px_12px] bg-[#FCEBEB] border border-[rgba(226,75,74,.2)] rounded-[8px] text-[12px] text-[#E24B4A]">
+              {error}
+            </div>
+          )}
+
           <div className="flex flex-col lg:flex-row gap-4 p-[16px_20px]">
-            {/* Left column — ticket queue */}
             <div className="flex-1 min-w-0">
               <TicketQueue
                 tickets={filteredTickets}
                 selectedId={selectedId}
                 activeFilter={activeFilter}
+                isLoading={isLoading}
                 onSelect={selectTicket}
                 onFilter={(f: FilterTag) => setFilter(f)}
               />
             </div>
 
-            {/* Right column — detail + sidebar widgets */}
             <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col gap-3">
-              <TicketDetail ticket={selectedTicket} onSendReply={sendReply} />
+              {selectedTicket ? (
+                <TicketDetail ticket={selectedTicket} onSendReply={sendReply} />
+              ) : !isLoading ? (
+                <div className="bg-[var(--surface)] border border-[var(--z-border)] rounded-xl p-6 text-center text-[13px] text-[var(--text3)]">
+                  Select a ticket to view details
+                </div>
+              ) : null}
               <AgentsOnline />
               <CsatCard />
               <CategoryChart />
