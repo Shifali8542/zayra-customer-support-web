@@ -1,4 +1,3 @@
-// src/pages/dashboard/Dashboard.tsx
 import React from 'react';
 import Topbar        from '../../components/layout/Topbar';
 import TabBar        from '../../components/layout/TabBar';
@@ -39,7 +38,7 @@ const Dashboard = () => {
           )}
 
           <div className="flex flex-col lg:flex-row gap-4 p-[16px_20px]">
-            <div className="flex-1 min-w-0">
+            <div className="w-full lg:w-[60%] min-w-0">
               <TicketQueue
                 tickets={filteredTickets}
                 selectedId={selectedId}
@@ -50,7 +49,7 @@ const Dashboard = () => {
               />
             </div>
 
-            <div className="w-full lg:w-[300px] flex-shrink-0 flex flex-col gap-3">
+            <div className="w-full lg:w-[40%] flex-shrink-0 flex flex-col gap-3">
               {selectedTicket ? (
                 <TicketDetail ticket={selectedTicket} onSendReply={sendReply} />
               ) : !isLoading ? (
