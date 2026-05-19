@@ -1,6 +1,5 @@
-// src/components/layout/StatsRow.tsx
 import React, { useEffect, useState } from 'react';
-import type { StatCard, DashboardStats } from '../../schema';
+import type { StatCard, DashboardStats, LiveMetrics } from '../../schema';
 import { dashboardApi } from '../../services/api';
 
 const TREND_CLASS: Record<StatCard['trend'], string> = {
@@ -55,7 +54,16 @@ const StatsRow = () => {
 
   useEffect(() => {
     dashboardApi.getStats()
-      .then(data => setStats(mapToStatCards(data)))
+      .then(async (data: DashboardStats) => {
+        if (data.avg_response_minutes == null || data.csat_today == null) {
+          try {
+            const live: LiveMetrics = await dashboardApi.getLiveMetrics();
+            if (data.avg_response_minutes == null) data.avg_response_minutes = live.avg_response_minutes;
+            if (data.csat_today           == null) data.csat_today           = live.csat_today;
+          } catch { }
+        }
+        setStats(mapToStatCards(data));
+      })
       .catch(() => {})
       .finally(() => setIsLoading(false));
   }, []);

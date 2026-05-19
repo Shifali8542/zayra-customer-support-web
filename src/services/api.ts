@@ -1,16 +1,12 @@
-// src/services/api.ts
-// All HTTP calls to the Zayra backend live here.
-// Base URL reads from VITE_API_URL in .env file.
-
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
   LoginCredentials, SignupCredentials,
   Ticket, Agent, DashboardStats, CategoryBar,
   AnalyticsSummary, DailyMetric, CsatEntry,
-  AgentPerformance, HeatmapData, PaginatedResponse, ChatMessage,
+  AgentPerformance, HeatmapData, PaginatedResponse, ChatMessage, LiveMetrics, KBArticle, KBListResponse,
 } from '../schema';
 
-// ─── Axios Instance ───────────────────────────────────────────────────────────
+// Axios Instance
 
 const API_BASE = (import.meta as any).env?.VITE_API_URL ?? 'http://192.168.1.172:8000';
 
@@ -121,25 +117,32 @@ export const ticketApi = {
   sendMessage: (id: number, message: string): Promise<ChatMessage> =>
     http.post(`/api/v1/support/tickets/${id}/messages/`, { message }).then(r => r.data).catch(normaliseError),
 
-  assign: (id: number, agentId: number): Promise<Ticket> =>
-    http.post(`/api/v1/support/tickets/${id}/assign/`, { agent_id: agentId }).then(r => r.data).catch(normaliseError),
+  assign: (id: number, agentId?: number): Promise<Ticket> =>
+    http.post(`/api/v1/support/tickets/${id}/assign/`, agentId ? { agent_id: agentId } : {}).then(r => r.data).catch(normaliseError),
+
+  selfAssign: (id: number): Promise<Ticket> =>
+    http.post(`/api/v1/support/tickets/${id}/assign/`, {}).then(r => r.data).catch(normaliseError),
+
+  close: (id: number): Promise<Ticket> =>
+    http.post(`/api/v1/support/tickets/${id}/close/`).then(r => r.data).catch(normaliseError),
 
   submitCsat: (id: number, score: number, comment?: string): Promise<void> =>
     http.post(`/api/v1/support/tickets/${id}/csat/`, { score, comment: comment ?? '' }).then(r => r.data).catch(normaliseError),
 };
 
-// ─── Dashboard API — /api/v1/support/dashboard/ ──────────────────────────────
-
+// Dashboard API
 export const dashboardApi = {
   getStats: (): Promise<DashboardStats> =>
     http.get('/api/v1/support/dashboard/stats/').then(r => r.data).catch(normaliseError),
 
   getCategories: (): Promise<CategoryBar[]> =>
     http.get('/api/v1/support/dashboard/categories/').then(r => r.data).catch(normaliseError),
+
+  getLiveMetrics: (): Promise<LiveMetrics> =>
+    http.get('/api/v1/support/dashboard/metrics/live/').then(r => r.data).catch(normaliseError),
 };
 
-// ─── Agents API — /api/v1/support/agents/ ────────────────────────────────────
-
+// Agents API
 export const agentApi = {
   getAll: (): Promise<Agent[]> =>
     http.get('/api/v1/support/agents/').then(r => r.data).catch(normaliseError),
@@ -167,6 +170,14 @@ export const analyticsApi = {
 
   getHeatmap: (): Promise<HeatmapData> =>
     http.get('/api/v1/support/analytics/heatmap/').then(r => r.data).catch(normaliseError),
+};
+
+export const kbApi = {
+  getArticles: (params?: { category?: string; search?: string }): Promise<KBListResponse> =>
+    http.get('/api/v1/support/kb/articles/', { params }).then(r => r.data).catch(normaliseError),
+
+  getArticle: (slug: string): Promise<KBArticle> =>
+    http.get(`/api/v1/support/kb/articles/${slug}/`).then(r => r.data).catch(normaliseError),
 };
 
 export default http;

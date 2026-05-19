@@ -1,4 +1,3 @@
-// src/hooks/useDashboard.ts
 import { useState, useCallback, useEffect } from 'react';
 import type { Ticket, FilterTag, TabId } from '../schema';
 import { ticketApi } from '../services/api';
@@ -16,6 +15,10 @@ interface UseDashboardReturn {
   setFilter:       (filter: FilterTag) => void;
   setActiveTab:    (tab: TabId) => void;
   sendReply:       (text: string) => Promise<void>;
+  selfAssign:      () => Promise<void>;
+  escalateTicket:  (note: string) => Promise<void>;
+  resolveTicket:   (note: string) => Promise<void>;
+  closeTicket:     () => Promise<void>;
   refresh:         () => void;
 }
 
@@ -46,15 +49,27 @@ export function useDashboard(): UseDashboardReturn {
 
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'knowledge-base') return;
-    let cancelled = false;
+    let cancelled  = false;
+    let isFirstLoad = true;
 
     const fetchTickets = () => {
+      // Do not poll when the browser tab is hidden — saves server load
+      if (document.hidden) return;
+
       ticketApi.getAll(tabToParams(activeTab, activeFilter))
         .then(res => {
           if (cancelled) return;
           const list = res.results ?? [];
           setTickets(list);
-          setSelectedId(prev => prev && list.find((t: Ticket) => t.id === prev) ? prev : (list[0]?.id ?? null));
+
+          // Only auto-select on the very first load when nothing is selected.
+          // On subsequent polls — never change selectedId.
+          // Changing selectedId on every poll restarts the detail effect,
+          // doubling the number of API calls unnecessarily.
+          if (isFirstLoad) {
+            isFirstLoad = false;
+            setSelectedId(prev => prev ?? (list[0]?.id ?? null));
+          }
         })
         .catch(err => { if (!cancelled) setError(err.message ?? 'Failed to load tickets.'); })
         .finally(() => { if (!cancelled) setIsLoading(false); });
@@ -64,23 +79,39 @@ export function useDashboard(): UseDashboardReturn {
     setError(null);
     fetchTickets();
 
-    // Poll every 8 seconds so agents see new patient messages without refresh
+    // Poll every 10 seconds — sufficient for support queue awareness
     const pollInterval = setInterval(() => {
       if (!cancelled) fetchTickets();
-    }, 8000);
+    }, 10000);
+
+    // When agent returns to the tab, fetch immediately instead of waiting for next interval
+    const onVisibilityChange = () => {
+      if (!document.hidden && !cancelled) fetchTickets();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       cancelled = true;
       clearInterval(pollInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [activeTab, activeFilter, refreshTick]);
 
   useEffect(() => {
     if (!selectedId) { setSelectedTicket(null); return; }
-    setSelectedTicket(tickets.find((t: Ticket) => t.id === selectedId) ?? null);
+
+    // Show cached list version immediately while full detail loads
+    setSelectedTicket(prev =>
+      prev?.id === selectedId
+        ? prev
+        : (tickets.find((t: Ticket) => t.id === selectedId) ?? null)
+    );
+
     let cancelled = false;
 
     const fetchDetail = () => {
+      // Do not poll when browser tab is hidden
+      if (document.hidden) return;
       ticketApi.getById(selectedId)
         .then(full => { if (!cancelled) setSelectedTicket(full); })
         .catch(() => {});
@@ -88,14 +119,23 @@ export function useDashboard(): UseDashboardReturn {
 
     fetchDetail();
 
-    // Poll selected ticket every 4 seconds — faster cadence for active chat
+    // Poll detail every 8 seconds — same cadence as queue.
+    // 4 seconds was unnecessarily aggressive and doubled the visible call rate.
+    // The support web has no WebSocket — this poll is the only way to see new
+    // patient messages, so we keep it running but at a reasonable interval.
     const detailPoll = setInterval(() => {
       if (!cancelled) fetchDetail();
-    }, 4000);
+    }, 8000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden && !cancelled) fetchDetail();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       cancelled = true;
       clearInterval(detailPoll);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [selectedId]);
 
@@ -106,7 +146,7 @@ export function useDashboard(): UseDashboardReturn {
     setActiveTab('queue');
   }, []);
 
-  const sendReply = useCallback(async (text: string) => {
+ const sendReply = useCallback(async (text: string) => {
     if (!selectedId || !text.trim()) return;
     try {
       const newMsg = await ticketApi.sendMessage(selectedId, text.trim());
@@ -116,11 +156,40 @@ export function useDashboard(): UseDashboardReturn {
     }
   }, [selectedId]);
 
+  const selfAssign = useCallback(async () => {
+    if (!selectedId) return;
+    const updated = await ticketApi.selfAssign(selectedId);
+    setSelectedTicket(updated);
+    setRefreshTick(n => n + 1);
+  }, [selectedId]);
+
+  const escalateTicket = useCallback(async (note: string) => {
+    if (!selectedId) return;
+    const updated = await ticketApi.escalate(selectedId, note);
+    setSelectedTicket(updated);
+    setRefreshTick(n => n + 1);
+  }, [selectedId]);
+
+  const resolveTicket = useCallback(async (note: string) => {
+    if (!selectedId) return;
+    const updated = await ticketApi.resolve(selectedId, note);
+    setSelectedTicket(updated);
+    setRefreshTick(n => n + 1);
+  }, [selectedId]);
+
+  const closeTicket = useCallback(async () => {
+    if (!selectedId) return;
+    const updated = await ticketApi.close(selectedId);
+    setSelectedTicket(updated);
+    setRefreshTick(n => n + 1);
+  }, [selectedId]);
+
   const refresh = useCallback(() => setRefreshTick(n => n + 1), []);
 
   return {
     tickets, filteredTickets: tickets, selectedTicket, selectedId,
     activeFilter, activeTab, isLoading, error,
-    selectTicket, setFilter: handleSetFilter, setActiveTab, sendReply, refresh,
+    selectTicket, setFilter: handleSetFilter, setActiveTab,
+    sendReply, selfAssign, escalateTicket, resolveTicket, closeTicket, refresh,
   };
 }

@@ -7,7 +7,8 @@ import TicketDetail  from '../../components/tickets/TicketDetail';
 import AgentsOnline  from '../../components/agents/AgentsOnline';
 import CategoryChart from '../../components/charts/CategoryChart';
 import CsatCard      from '../../components/charts/CsatCard';
-import Analytics     from '../analytics/Analytics';
+import Analytics      from '../analytics/Analytics';
+import KnowledgeBase  from './KnowledgeBase';
 import { useDashboard } from '../../hooks/useDashboard';
 import type { TabId, FilterTag } from '../../schema';
 
@@ -15,7 +16,8 @@ const Dashboard = () => {
   const {
     filteredTickets, selectedTicket, selectedId,
     activeFilter, activeTab, isLoading, error,
-    selectTicket, setFilter, setActiveTab, sendReply,
+    selectTicket, setFilter, setActiveTab,
+    sendReply, selfAssign, escalateTicket, resolveTicket, closeTicket, refresh,
   } = useDashboard();
 
   return (
@@ -27,6 +29,8 @@ const Dashboard = () => {
 
       {activeTab === 'analytics' ? (
         <Analytics />
+      ) : activeTab === 'knowledge-base' ? (
+        <KnowledgeBase />
       ) : (
         <>
           <StatsRow />
@@ -51,7 +55,14 @@ const Dashboard = () => {
 
             <div className="w-full lg:w-[40%] flex-shrink-0 flex flex-col gap-3">
               {selectedTicket ? (
-                <TicketDetail ticket={selectedTicket} onSendReply={sendReply} />
+                <TicketDetail
+                  ticket={selectedTicket}
+                  onSendReply={sendReply}
+                  onSelfAssign={selfAssign}
+                  onEscalate={escalateTicket}
+                  onResolve={resolveTicket}
+                  onClose={closeTicket}
+                />
               ) : !isLoading ? (
                 <div className="bg-[var(--surface)] border border-[var(--z-border)] rounded-xl p-6 text-center text-[13px] text-[var(--text3)]">
                   Select a ticket to view details

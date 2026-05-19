@@ -1,4 +1,3 @@
-// src/components/charts/CsatCard.tsx
 import React, { useEffect, useState } from 'react';
 import { dashboardApi } from '../../services/api';
 import Card from '../ui/Card';
@@ -22,7 +21,21 @@ const CsatCard = () => {
   }, []);
 
   const displayScore = score ?? 0;
-  const progress = (displayScore / 5) * CIRCUMFERENCE;
+  const progress     = (displayScore / 5) * CIRCUMFERENCE;
+
+  // Render only the filled stars based on actual score (rounded to nearest 0.5)
+  const renderStars = (s: number) => {
+    const full  = Math.floor(s);
+    const half  = s - full >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+    return (
+      <span className="text-[13px] tracking-wider">
+        {'★'.repeat(full)  && <span style={{ color: '#BA7517' }}>{'★'.repeat(full)}</span>}
+        {half === 1         && <span style={{ color: '#BA7517' }}>½</span>}
+        {'☆'.repeat(empty) && <span style={{ color: 'var(--text3)' }}>{'☆'.repeat(empty)}</span>}
+      </span>
+    );
+  };
 
   return (
     <Card>
@@ -44,8 +57,14 @@ const CsatCard = () => {
             <div className="text-[32px] font-medium text-[var(--text1)] leading-none">
               {displayScore > 0 ? displayScore : '—'}
             </div>
-            <div className="text-[13px] text-[#BA7517] tracking-wider mt-1">★★★★★</div>
-            <div className="text-[11px] text-[#3B6D11] mt-1">{sub || 'No data yet'}</div>
+            <div className="mt-1">
+              {displayScore > 0 ? renderStars(displayScore) : (
+                <span className="text-[13px] text-[var(--text3)]">☆☆☆☆☆</span>
+              )}
+            </div>
+            <div className="text-[11px] mt-1" style={{ color: displayScore > 0 ? '#3B6D11' : 'var(--text3)' }}>
+              {displayScore > 0 ? (sub || `Based on today's ratings`) : 'No ratings yet'}
+            </div>
           </div>
           <div className="relative inline-flex items-center justify-center">
             <svg width="72" height="72" viewBox="0 0 72 72">

@@ -171,6 +171,27 @@ export type TabId =
   | 'knowledge-base'
   | 'analytics';
 
+export interface LiveMetrics {
+  csat_today:           number | null;
+  avg_response_minutes: number | null;
+}
+
+export interface KBArticle {
+  slug:              string;
+  title:             string;
+  summary:           string;
+  category:          string;
+  read_time_minutes: number;
+  view_count:        number;
+  body?:             string;
+  updated_at:        string;
+}
+
+export interface KBListResponse {
+  count:   number;
+  results: KBArticle[];
+}
+
 export interface NavTab {
   id:    TabId;
   label: string;

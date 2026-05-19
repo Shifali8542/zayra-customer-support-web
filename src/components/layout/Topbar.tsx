@@ -1,4 +1,3 @@
-// src/components/layout/Topbar.tsx
 import React from 'react';
 import ZayraLogo from '../ui/ZayraLogo';
 import { useTheme } from '../../theme/ThemeContext';

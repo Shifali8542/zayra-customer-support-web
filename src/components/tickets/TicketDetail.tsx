@@ -1,4 +1,3 @@
-// src/components/tickets/TicketDetail.tsx
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import type { Ticket } from '../../schema';
 import Badge from '../ui/Badge';
@@ -6,21 +5,55 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 
 interface Props {
-  ticket:      Ticket;
-  onSendReply: (text: string) => Promise<void>;
+  ticket:          Ticket;
+  onSendReply:     (text: string) => Promise<void>;
+  onSelfAssign?:   () => Promise<void>;
+  onEscalate?:     (note: string) => Promise<void>;
+  onResolve?:      (note: string) => Promise<void>;
+  onClose?:        () => Promise<void>;
 }
 
 const SEV_LABEL: Record<Ticket['severity'], string> = {
   critical: 'Critical', urgent: 'Urgent', normal: 'Normal', resolved: 'Resolved',
 };
 
-const TicketDetail = ({ ticket, onSendReply }: Props) => {
-  const [reply,   setReply]   = useState('');
-  const [sending, setSending] = useState(false);
+const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve, onClose }: Props) => {
+  const [reply,         setReply]         = useState('');
+  const [sending,       setSending]       = useState(false);
+  const [actionKey,     setActionKey]     = useState<string | null>(null);
+  const [escNote,       setEscNote]       = useState('');
+  const [resNote,       setResNote]       = useState('');
+  const [showEscInput,  setShowEscInput]  = useState(false);
+  const [showResInput,  setShowResInput]  = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const prevMessageCount = useRef(0);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [ticket.messages]);
-  useEffect(() => { setReply(''); }, [ticket.id]);
+  useEffect(() => {
+    setReply('');
+    setShowEscInput(false);
+    setShowResInput(false);
+    setEscNote('');
+    setResNote('');
+    setActionKey(null);
+  }, [ticket.id]);
+
+  useEffect(() => {
+    const messages = ticket.messages ?? [];
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    const isNewMessage = messages.length > prevMessageCount.current;
+    prevMessageCount.current = messages.length;
+
+    if (!isNewMessage) {
+      container.scrollTop = container.scrollHeight;
+    } else {
+      // A new message arrived — scroll smoothly inside the container only
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [ticket.messages]);
 
   const handleSend = async () => {
     if (!reply.trim() || sending) return;
@@ -33,7 +66,18 @@ const TicketDetail = ({ ticket, onSendReply }: Props) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const isResolved = ticket.severity === 'resolved' || ticket.status === 'resolved';
+  const runAction = async (key: string, fn: () => Promise<void>) => {
+    setActionKey(key);
+    try { await fn(); } catch { }
+    finally { setActionKey(null); }
+  };
+
+  const isResolved   = ticket.status === 'resolved' || ticket.status === 'closed';
+  const isEscalated  = ticket.status === 'escalated';
+  const canAssign    = !ticket.assigned_to && onSelfAssign;
+  const canEscalate  = !isResolved && !isEscalated && onEscalate;
+  const canResolve   = !isResolved && onResolve;
+  const canClose     = ticket.status === 'resolved' && onClose;
 
   return (
     <Card padding="p-4" className="flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-200px)] lg:max-h-none">
@@ -79,7 +123,7 @@ const TicketDetail = ({ ticket, onSendReply }: Props) => {
         <div className="text-[11px] font-medium text-[var(--text3)] uppercase tracking-[.05em] mb-2">
           Conversation
         </div>
-        <div className="flex flex-col gap-[6px] max-h-[200px] overflow-y-auto pr-1 mb-2">
+        <div ref={chatContainerRef} className="flex flex-col gap-[6px] max-h-[200px] overflow-y-auto pr-1 mb-2">
           {(ticket.messages ?? []).length === 0 ? (
             <div className="text-[12px] text-[var(--text3)] text-center py-3">No messages yet</div>
           ) : (
@@ -127,6 +171,97 @@ const TicketDetail = ({ ticket, onSendReply }: Props) => {
           </div>
         )}
       </div>
+
+      {/* ── Ticket actions ───────────────────────────────────────────────── */}
+      {(canAssign || canEscalate || canResolve || canClose) && (
+        <div className="border-t border-[var(--z-border)] pt-3">
+          <div className="text-[11px] font-medium text-[var(--text3)] uppercase tracking-[.05em] mb-2">
+            Actions
+          </div>
+
+          {/* Self-assign */}
+          {canAssign && (
+            <button
+              onClick={() => runAction('assign', onSelfAssign!)}
+              disabled={actionKey === 'assign'}
+              className="w-full mb-[6px] px-3 py-[7px] text-[12px] font-sans rounded-[8px] border border-[#9FE1CB] text-[#0F6E56] bg-[#E1F5EE] cursor-pointer hover:bg-[#c8f0e4] transition-colors disabled:opacity-60"
+            >
+              {actionKey === 'assign' ? 'Assigning…' : 'Assign to me'}
+            </button>
+          )}
+
+          {/* Escalate */}
+          {canEscalate && (
+            showEscInput ? (
+              <div className="mb-[6px]">
+                <input
+                  value={escNote}
+                  onChange={e => setEscNote(e.target.value)}
+                  placeholder="Escalation reason (optional)"
+                  className="w-full text-[12px] px-[10px] py-[7px] mb-1 border border-[var(--z-border)] rounded-[8px] bg-[var(--surface2)] text-[var(--text1)] font-sans outline-none focus:border-[#BA7517]"
+                />
+                <div className="flex gap-[6px]">
+                  <button onClick={() => { setShowEscInput(false); setEscNote(''); }} className="flex-1 px-3 py-[6px] text-[11px] font-sans border border-[var(--z-border)] rounded-[8px] text-[var(--text2)] bg-transparent cursor-pointer hover:bg-[var(--surface2)]">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => runAction('escalate', () => { const note = escNote; setShowEscInput(false); setEscNote(''); return onEscalate!(note); })}
+                    disabled={actionKey === 'escalate'}
+                    className="flex-1 px-3 py-[6px] text-[11px] font-sans border border-[#BA7517] text-[#633806] bg-[#FAEEDA] rounded-[8px] cursor-pointer hover:bg-[#f5dba8] disabled:opacity-60"
+                  >
+                    {actionKey === 'escalate' ? 'Escalating…' : 'Confirm escalate'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowEscInput(true)} className="w-full mb-[6px] px-3 py-[7px] text-[12px] font-sans border border-[#BA7517] text-[#633806] bg-[#FAEEDA] rounded-[8px] cursor-pointer hover:bg-[#f5dba8] transition-colors">
+                Escalate ticket
+              </button>
+            )
+          )}
+
+          {/* Resolve */}
+          {canResolve && (
+            showResInput ? (
+              <div className="mb-[6px]">
+                <input
+                  value={resNote}
+                  onChange={e => setResNote(e.target.value)}
+                  placeholder="Resolution note (optional)"
+                  className="w-full text-[12px] px-[10px] py-[7px] mb-1 border border-[var(--z-border)] rounded-[8px] bg-[var(--surface2)] text-[var(--text1)] font-sans outline-none focus:border-[#1D9E75]"
+                />
+                <div className="flex gap-[6px]">
+                  <button onClick={() => { setShowResInput(false); setResNote(''); }} className="flex-1 px-3 py-[6px] text-[11px] font-sans border border-[var(--z-border)] rounded-[8px] text-[var(--text2)] bg-transparent cursor-pointer hover:bg-[var(--surface2)]">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => runAction('resolve', () => { const note = resNote; setShowResInput(false); setResNote(''); return onResolve!(note); })}
+                    disabled={actionKey === 'resolve'}
+                    className="flex-1 px-3 py-[6px] text-[11px] font-sans border border-[#1D9E75] text-[#0F6E56] bg-[#E1F5EE] rounded-[8px] cursor-pointer hover:bg-[#c8f0e4] disabled:opacity-60"
+                  >
+                    {actionKey === 'resolve' ? 'Resolving…' : 'Confirm resolve'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => setShowResInput(true)} className="w-full mb-[6px] px-3 py-[7px] text-[12px] font-sans border border-[#1D9E75] text-[#0F6E56] bg-[#E1F5EE] rounded-[8px] cursor-pointer hover:bg-[#c8f0e4] transition-colors">
+                Mark as resolved
+              </button>
+            )
+          )}
+
+          {/* Close */}
+          {canClose && (
+            <button
+              onClick={() => runAction('close', onClose!)}
+              disabled={actionKey === 'close'}
+              className="w-full mb-[6px] px-3 py-[7px] text-[12px] font-sans border border-[var(--z-border)] text-[var(--text2)] rounded-[8px] cursor-pointer hover:bg-[var(--surface2)] transition-colors disabled:opacity-60"
+            >
+              {actionKey === 'close' ? 'Closing…' : 'Close ticket'}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-[6px]">
         <Button variant="primary"   fullWidth>Get AI guidance</Button>

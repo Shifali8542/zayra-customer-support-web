@@ -31,7 +31,9 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
   const activeLabel = NAV_TABS.find((t: NavTab) => t.id === activeTab)?.label;
 
   return (
-    <>
+    // position: relative so the absolute dropdown is anchored here
+    <div className="relative">
+      {/* Desktop nav — unchanged */}
       <nav className="
         hidden md:flex border-b border-[var(--z-border)]
         bg-[var(--surface)] px-5 overflow-x-auto
@@ -56,6 +58,7 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
         ))}
       </nav>
 
+      {/* Mobile trigger row — always visible on mobile, fixed height, never shifts */}
       <div
         className="
           md:hidden flex items-center justify-between px-5 py-[10px]
@@ -69,8 +72,13 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
         <ChevronIcon open={mobileOpen} />
       </div>
 
+      {/* Mobile dropdown — position:absolute so it OVERLAYS content, never pushes it down */}
       {mobileOpen && (
-        <div className="md:hidden bg-[var(--surface)] border-b border-[var(--z-border)]">
+        <div className="
+          md:hidden absolute top-full left-0 right-0 z-40
+          bg-[var(--surface)] border-b border-[var(--z-border)]
+          shadow-sm
+        ">
           {NAV_TABS.map((tab: NavTab) => (
             <button
               key={tab.id}
@@ -89,7 +97,7 @@ const TabBar = ({ activeTab, onTabChange }: TabBarProps) => {
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 };
 
