@@ -47,28 +47,56 @@ export function useDashboard(): UseDashboardReturn {
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'knowledge-base') return;
     let cancelled = false;
+
+    const fetchTickets = () => {
+      ticketApi.getAll(tabToParams(activeTab, activeFilter))
+        .then(res => {
+          if (cancelled) return;
+          const list = res.results ?? [];
+          setTickets(list);
+          setSelectedId(prev => prev && list.find((t: Ticket) => t.id === prev) ? prev : (list[0]?.id ?? null));
+        })
+        .catch(err => { if (!cancelled) setError(err.message ?? 'Failed to load tickets.'); })
+        .finally(() => { if (!cancelled) setIsLoading(false); });
+    };
+
     setIsLoading(true);
     setError(null);
-    ticketApi.getAll(tabToParams(activeTab, activeFilter))
-      .then(res => {
-        if (cancelled) return;
-        const list = res.results ?? [];
-        setTickets(list);
-        setSelectedId(prev => prev && list.find(t => t.id === prev) ? prev : (list[0]?.id ?? null));
-      })
-      .catch(err => { if (!cancelled) setError(err.message ?? 'Failed to load tickets.'); })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-    return () => { cancelled = true; };
+    fetchTickets();
+
+    // Poll every 8 seconds so agents see new patient messages without refresh
+    const pollInterval = setInterval(() => {
+      if (!cancelled) fetchTickets();
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+    };
   }, [activeTab, activeFilter, refreshTick]);
 
   useEffect(() => {
     if (!selectedId) { setSelectedTicket(null); return; }
-    setSelectedTicket(tickets.find(t => t.id === selectedId) ?? null);
+    setSelectedTicket(tickets.find((t: Ticket) => t.id === selectedId) ?? null);
     let cancelled = false;
-    ticketApi.getById(selectedId)
-      .then(full => { if (!cancelled) setSelectedTicket(full); })
-      .catch(() => {});
-    return () => { cancelled = true; };
+
+    const fetchDetail = () => {
+      ticketApi.getById(selectedId)
+        .then(full => { if (!cancelled) setSelectedTicket(full); })
+        .catch(() => {});
+    };
+
+    fetchDetail();
+
+    // Poll selected ticket every 4 seconds — faster cadence for active chat
+    const detailPoll = setInterval(() => {
+      if (!cancelled) fetchDetail();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(detailPoll);
+    };
   }, [selectedId]);
 
   const selectTicket = useCallback((id: number) => setSelectedId(id), []);
