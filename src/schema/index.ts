@@ -1,7 +1,3 @@
-// src/schema/index.ts
-// Single source of truth for all TypeScript types.
-// Mirrors backend API response shapes exactly.
-
 export type TicketSeverity = 'critical' | 'urgent' | 'normal' | 'resolved';
 export type TicketTag      = 'critical' | 'urgent' | 'device' | 'billing' | 'normal' | 'resolved';
 export type FilterTag      = 'all' | TicketTag;
@@ -190,6 +186,23 @@ export interface KBArticle {
 export interface KBListResponse {
   count:   number;
   results: KBArticle[];
+}
+
+export interface WsNewTicketMessage {
+  type:      'new_ticket';
+  ticket_id: number;
+}
+
+
+export interface WsChatMessage {
+  type:        'chat_message';
+  id:          number;
+  sender:      string;
+  sender_type: 'customer' | 'agent' | 'system';
+  text:        string;
+  time:        string;
+  sent_at:     string;
+  mine:        boolean;
 }
 
 export interface NavTab {

@@ -7,8 +7,8 @@ import type {
 } from '../schema';
 
 // Axios Instance
-
 const API_BASE = (import.meta as any).env?.VITE_API_URL ?? 'http://192.168.1.172:8000';
+export { API_BASE };
 
 const http: AxiosInstance = axios.create({
   baseURL: API_BASE,
@@ -16,7 +16,7 @@ const http: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request Interceptor — attach JWT ────────────────────────────────────────
+// Request Interceptor — attach JWT 
 
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('zayra-access-token');

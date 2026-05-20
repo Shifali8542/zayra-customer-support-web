@@ -3,28 +3,37 @@ import type { Ticket } from '../../schema';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import { useTicketChat } from '../../hooks/useTicketChat';
 
 interface Props {
-  ticket:          Ticket;
-  onSendReply:     (text: string) => Promise<void>;
-  onSelfAssign?:   () => Promise<void>;
-  onEscalate?:     (note: string) => Promise<void>;
-  onResolve?:      (note: string) => Promise<void>;
-  onClose?:        () => Promise<void>;
+  ticket: Ticket;
+  accessToken: string | null;
+  onSendReply: (text: string) => Promise<void>;
+  onSelfAssign?: () => Promise<void>;
+  onEscalate?: (note: string) => Promise<void>;
+  onResolve?: (note: string) => Promise<void>;
+  onClose?: () => Promise<void>;
 }
 
 const SEV_LABEL: Record<Ticket['severity'], string> = {
   critical: 'Critical', urgent: 'Urgent', normal: 'Normal', resolved: 'Resolved',
 };
 
-const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve, onClose }: Props) => {
-  const [reply,         setReply]         = useState('');
-  const [sending,       setSending]       = useState(false);
-  const [actionKey,     setActionKey]     = useState<string | null>(null);
-  const [escNote,       setEscNote]       = useState('');
-  const [resNote,       setResNote]       = useState('');
-  const [showEscInput,  setShowEscInput]  = useState(false);
-  const [showResInput,  setShowResInput]  = useState(false);
+const TicketDetail = ({ ticket, accessToken, onSendReply, onSelfAssign, onEscalate, onResolve, onClose }: Props) => {
+  const {
+    messages: wsMessages,
+    connected: wsConnected,
+    sending: wsSending,
+    sendMessage: wsSendMessage,
+  } = useTicketChat(ticket.id, accessToken);
+
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [actionKey, setActionKey] = useState<string | null>(null);
+  const [escNote, setEscNote] = useState('');
+  const [resNote, setResNote] = useState('');
+  const [showEscInput, setShowEscInput] = useState(false);
+  const [showResInput, setShowResInput] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const prevMessageCount = useRef(0);
@@ -56,10 +65,9 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
   }, [ticket.messages]);
 
   const handleSend = async () => {
-    if (!reply.trim() || sending) return;
-    setSending(true);
-    try { await onSendReply(reply.trim()); setReply(''); }
-    finally { setSending(false); }
+    if (!reply.trim() || wsSending) return;
+    await wsSendMessage(reply.trim());
+    setReply('');
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -72,12 +80,12 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
     finally { setActionKey(null); }
   };
 
-  const isResolved   = ticket.status === 'resolved' || ticket.status === 'closed';
-  const isEscalated  = ticket.status === 'escalated';
-  const canAssign    = !ticket.assigned_to && onSelfAssign;
-  const canEscalate  = !isResolved && !isEscalated && onEscalate;
-  const canResolve   = !isResolved && onResolve;
-  const canClose     = ticket.status === 'resolved' && onClose;
+  const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
+  const isEscalated = ticket.status === 'escalated';
+  const canAssign = !ticket.assigned_to && onSelfAssign;
+  const canEscalate = !isResolved && !isEscalated && onEscalate;
+  const canResolve = !isResolved && onResolve;
+  const canClose = ticket.status === 'resolved' && onClose;
 
   return (
     <Card padding="p-4" className="flex flex-col gap-3 overflow-y-auto max-h-[calc(100vh-200px)] lg:max-h-none">
@@ -97,7 +105,7 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
         <Row label="Name" value={ticket.user_name} />
         <Row label="Plan" value={ticket.user_plan} />
         {ticket.member_since && <Row label="Member since" value={ticket.member_since} />}
-        {ticket.clinician    && <Row label="Clinician"   value={ticket.clinician}    />}
+        {ticket.clinician && <Row label="Clinician" value={ticket.clinician} />}
       </Section>
 
       {ticket.device && (
@@ -105,8 +113,8 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
           <div className="bg-[var(--surface2)] rounded-[8px] p-[10px_12px] border border-[var(--z-border)]">
             <div className="text-[12px] font-medium text-[var(--text1)] mb-1">{ticket.device.name}</div>
             <div className="flex gap-3 flex-wrap">
-              <DeviceStat label="FW"        value={ticket.device.firmware}  />
-              <DeviceStat label="Bat"       value={ticket.device.battery}   />
+              <DeviceStat label="FW" value={ticket.device.firmware} />
+              <DeviceStat label="Bat" value={ticket.device.battery} />
               <DeviceStat label="Last sync" value={ticket.device.last_sync} />
             </div>
           </div>
@@ -124,10 +132,10 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
           Conversation
         </div>
         <div ref={chatContainerRef} className="flex flex-col gap-[6px] max-h-[200px] overflow-y-auto pr-1 mb-2">
-          {(ticket.messages ?? []).length === 0 ? (
+          {wsMessages.length === 0 ? (
             <div className="text-[12px] text-[var(--text3)] text-center py-3">No messages yet</div>
           ) : (
-            (ticket.messages ?? []).map((msg, i) => (
+            wsMessages.map((msg, i) => (
               <div key={msg.id ?? i} className={`rounded-[8px] p-[8px_10px] ${msg.mine ? 'bg-[#E1F5EE]' : 'bg-[var(--surface2)]'}`}>
                 <div className={`text-[10px] mb-[3px] ${msg.mine ? 'text-[#0F6E56]' : 'text-[var(--text3)]'}`}>
                   {msg.sender}
@@ -142,12 +150,15 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
 
         {!isResolved && (
           <div className="flex gap-[6px]">
+            {wsConnected && (
+              <span className="text-[10px] text-[#1D9E75] self-center pr-1" title="Live">●</span>
+            )}
             <input
               value={reply}
               onChange={e => setReply(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type a reply..."
-              disabled={sending}
+              disabled={wsSending}
               className="
                 flex-1 text-[12px] px-[10px] py-[7px] font-sans
                 border border-[var(--z-border)] rounded-[8px]
@@ -158,7 +169,7 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
             />
             <button
               onClick={handleSend}
-              disabled={sending || !reply.trim()}
+              disabled={wsSending || !reply.trim()}
               className="
                 px-3 py-[7px] bg-[#1D9E75] text-white border-none
                 rounded-[8px] text-[12px] cursor-pointer font-sans
@@ -166,7 +177,7 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
                 disabled:opacity-60 disabled:cursor-not-allowed
               "
             >
-              {sending ? '...' : 'Send'}
+              {wsSending ? '...' : 'Send'}
             </button>
           </div>
         )}
@@ -264,7 +275,7 @@ const TicketDetail = ({ ticket, onSendReply, onSelfAssign, onEscalate, onResolve
       )}
 
       <div className="flex flex-col gap-[6px]">
-        <Button variant="primary"   fullWidth>Get AI guidance</Button>
+        <Button variant="primary" fullWidth>Get AI guidance</Button>
         <Button variant="secondary" fullWidth>Draft AI response</Button>
       </div>
     </Card>

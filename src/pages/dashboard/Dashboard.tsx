@@ -12,6 +12,8 @@ import KnowledgeBase  from './KnowledgeBase';
 import { useDashboard } from '../../hooks/useDashboard';
 import type { TabId, FilterTag } from '../../schema';
 
+const getAccessToken = () => localStorage.getItem('zayra-access-token');
+
 const Dashboard = () => {
   const {
     filteredTickets, selectedTicket, selectedId,
@@ -57,6 +59,7 @@ const Dashboard = () => {
               {selectedTicket ? (
                 <TicketDetail
                   ticket={selectedTicket}
+                  accessToken={getAccessToken()}
                   onSendReply={sendReply}
                   onSelfAssign={selfAssign}
                   onEscalate={escalateTicket}

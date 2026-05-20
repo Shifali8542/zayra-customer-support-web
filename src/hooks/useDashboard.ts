@@ -1,36 +1,39 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Ticket, FilterTag, TabId } from '../schema';
 import { ticketApi } from '../services/api';
+import { useQueueSocket } from './useQueueSocket';
+
+const getAccessToken = () => localStorage.getItem('zayra-access-token');
 
 interface UseDashboardReturn {
-  tickets:         Ticket[];
+  tickets: Ticket[];
   filteredTickets: Ticket[];
-  selectedTicket:  Ticket | null;
-  selectedId:      number | null;
-  activeFilter:    FilterTag;
-  activeTab:       TabId;
-  isLoading:       boolean;
-  error:           string | null;
-  selectTicket:    (id: number) => void;
-  setFilter:       (filter: FilterTag) => void;
-  setActiveTab:    (tab: TabId) => void;
-  sendReply:       (text: string) => Promise<void>;
-  selfAssign:      () => Promise<void>;
-  escalateTicket:  (note: string) => Promise<void>;
-  resolveTicket:   (note: string) => Promise<void>;
-  closeTicket:     () => Promise<void>;
-  refresh:         () => void;
+  selectedTicket: Ticket | null;
+  selectedId: number | null;
+  activeFilter: FilterTag;
+  activeTab: TabId;
+  isLoading: boolean;
+  error: string | null;
+  selectTicket: (id: number) => void;
+  setFilter: (filter: FilterTag) => void;
+  setActiveTab: (tab: TabId) => void;
+  sendReply: (text: string) => Promise<void>;
+  selfAssign: () => Promise<void>;
+  escalateTicket: (note: string) => Promise<void>;
+  resolveTicket: (note: string) => Promise<void>;
+  closeTicket: () => Promise<void>;
+  refresh: () => void;
 }
 
 function tabToParams(tab: TabId, filter: FilterTag) {
   const params: Record<string, string> = {};
   switch (tab) {
-    case 'my-cases':     params.assigned_to = 'me';        break;
-    case 'escalations':  params.status      = 'escalated'; break;
-    case 'device-alerts': params.tag        = 'device';    break;
+    case 'my-cases': params.assigned_to = 'me'; break;
+    case 'escalations': params.status = 'escalated'; break;
+    case 'device-alerts': params.tag = 'device'; break;
     default:
       if (filter !== 'all') {
-        if (['critical','urgent','normal','resolved'].includes(filter)) params.severity = filter;
+        if (['critical', 'urgent', 'normal', 'resolved'].includes(filter)) params.severity = filter;
         else params.tag = filter;
       }
   }
@@ -38,18 +41,18 @@ function tabToParams(tab: TabId, filter: FilterTag) {
 }
 
 export function useDashboard(): UseDashboardReturn {
-  const [tickets,       setTickets]       = useState<Ticket[]>([]);
-  const [selectedId,    setSelectedId]    = useState<number | null>(null);
-  const [selectedTicket,setSelectedTicket]= useState<Ticket | null>(null);
-  const [activeFilter,  setFilter]        = useState<FilterTag>('all');
-  const [activeTab,     setActiveTab]     = useState<TabId>('queue');
-  const [isLoading,     setIsLoading]     = useState(false);
-  const [error,         setError]         = useState<string | null>(null);
-  const [refreshTick,   setRefreshTick]   = useState(0);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [activeFilter, setFilter] = useState<FilterTag>('all');
+  const [activeTab, setActiveTab] = useState<TabId>('queue');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     if (activeTab === 'analytics' || activeTab === 'knowledge-base') return;
-    let cancelled  = false;
+    let cancelled = false;
     let isFirstLoad = true;
 
     const fetchTickets = () => {
@@ -79,21 +82,8 @@ export function useDashboard(): UseDashboardReturn {
     setError(null);
     fetchTickets();
 
-    // Poll every 10 seconds — sufficient for support queue awareness
-    const pollInterval = setInterval(() => {
-      if (!cancelled) fetchTickets();
-    }, 10000);
-
-    // When agent returns to the tab, fetch immediately instead of waiting for next interval
-    const onVisibilityChange = () => {
-      if (!document.hidden && !cancelled) fetchTickets();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
     return () => {
       cancelled = true;
-      clearInterval(pollInterval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [activeTab, activeFilter, refreshTick]);
 
@@ -114,28 +104,13 @@ export function useDashboard(): UseDashboardReturn {
       if (document.hidden) return;
       ticketApi.getById(selectedId)
         .then(full => { if (!cancelled) setSelectedTicket(full); })
-        .catch(() => {});
+        .catch(() => { });
     };
 
     fetchDetail();
 
-    // Poll detail every 8 seconds — same cadence as queue.
-    // 4 seconds was unnecessarily aggressive and doubled the visible call rate.
-    // The support web has no WebSocket — this poll is the only way to see new
-    // patient messages, so we keep it running but at a reasonable interval.
-    const detailPoll = setInterval(() => {
-      if (!cancelled) fetchDetail();
-    }, 8000);
-
-    const onVisibilityChange = () => {
-      if (!document.hidden && !cancelled) fetchDetail();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
     return () => {
       cancelled = true;
-      clearInterval(detailPoll);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [selectedId]);
 
@@ -146,7 +121,7 @@ export function useDashboard(): UseDashboardReturn {
     setActiveTab('queue');
   }, []);
 
- const sendReply = useCallback(async (text: string) => {
+  const sendReply = useCallback(async (text: string) => {
     if (!selectedId || !text.trim()) return;
     try {
       const newMsg = await ticketApi.sendMessage(selectedId, text.trim());
@@ -185,6 +160,7 @@ export function useDashboard(): UseDashboardReturn {
   }, [selectedId]);
 
   const refresh = useCallback(() => setRefreshTick(n => n + 1), []);
+  useQueueSocket(getAccessToken(), refresh);
 
   return {
     tickets, filteredTickets: tickets, selectedTicket, selectedId,
