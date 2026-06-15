@@ -181,3 +181,19 @@ export const kbApi = {
 };
 
 export default http;
+
+// WebSocket base URL — converts http → ws, https → wss
+export function getWsBase(): string {
+  return API_BASE
+    .replace('https://', 'wss://')
+    .replace('http://', 'ws://');
+}
+
+// BLE Monitor API — Customer Support Web only
+// Calls /patients/support/ble-monitor/ (IsSupportAgent permission)
+export const bleSupportApi = {
+  getHistory: (limit = 50): Promise<import('../schema').BLEMonitorListResponse> =>
+    http.get('/api/v1/patients/support/ble-monitor/', { params: { limit } })
+      .then(r => r.data)
+      .catch(normaliseError),
+};

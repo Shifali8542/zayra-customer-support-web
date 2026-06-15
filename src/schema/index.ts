@@ -205,6 +205,45 @@ export interface WsChatMessage {
   mine:        boolean;
 }
 
+// BLE Patient Monitoring — real-time events from ws/ecg-alerts/
+export interface BLEMonitorEvent {
+  type:           'mi_alert' | 'connected' | 'alert_claimed';
+  alert_id?:      string;
+  patient_code?:  string;
+  patient_id?:    number;
+  ecg_record_id?: number;
+  mi_detected?:   boolean;
+  confidence?:    number;
+  severity?:      'CRITICAL' | 'WARNING' | 'NORMAL';
+  recommendation?: string;
+  probabilities?: { NORM: number; MI: number };
+  model_name?:    string;
+  timestamp?:     string;
+  message?:       string;
+}
+// BLE history record — from GET /patients/support/ble-monitor/
+export interface BLEPredictionRecord {
+  id:               number;
+  mi_detected:      boolean;
+  confidence:       number;
+  prob_norm:        number;
+  prob_mi:          number;
+  severity:         'CRITICAL' | 'WARNING' | 'NORMAL';
+  recommendation:   string;
+  model_name:       string;
+  analysis_time_ms: number | null;
+  samples_used:     number | null;
+  patient_context:  Record<string, unknown>;
+  created_at:       string;
+  ecg_record_id:    number;
+  patient_code:     string;
+}
+
+export interface BLEMonitorListResponse {
+  count:   number;
+  results: BLEPredictionRecord[];
+}
+
 export interface NavTab {
   id:    TabId;
   label: string;
